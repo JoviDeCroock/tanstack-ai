@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AI, defineTools } from "@tanstack/ai";
+import { AI, defineTools, tool } from "@tanstack/ai";
 import { OllamaAdapter } from "@tanstack/ai-ollama";
 import { OpenAIAdapter } from "@tanstack/ai-openai";
 
@@ -13,36 +13,35 @@ You can use the following tools to help the user:
 - recommendGuitar: Recommend a guitar to the user
 `;
 
-// Define tools registry with full type safety using defineTools
+// Define tools registry with full type safety using defineTools + tool()
 const tools = defineTools({
-  getGuitars: {
+  getGuitars: tool({
     description: "Get all products from the database",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    properties: {},
     execute: async () => {
       return JSON.stringify(guitars);
     },
-  },
-  recommendGuitar: {
+  }),
+  recommendGuitar: tool({
     description: "Use this tool to recommend a guitar to the user",
-    parameters: {
-      type: "object",
-      properties: {
-        id: {
-          type: "string",
-          description: "The id of the guitar to recommend",
-        },
+    properties: {
+      id: {
+        type: "string",
+        description: "The id of the guitar to recommend",
+        required: true,
       },
-      required: ["id"],
+      name: {
+        type: "boolean",
+        description: "Whether to include the name in the response",
+        required: false,
+
+      }
     },
     execute: async (args) => {
-      // args is automatically typed as { id: string }
+      // ✅ args is now properly typed as { id: string } with full type safety!
       return JSON.stringify({ id: args.id });
     },
-  },
+  }),
 });
 
 // Initialize AI with tools and system prompts in constructor
@@ -61,8 +60,8 @@ const ai = new AI({
       model: "gpt-4",
     },
   ],
-  tools, // ← Register tools once here!
-  systemPrompts: [SYSTEM_PROMPT], // ← Default system prompt for all chats
+  tools,
+  systemPrompts: [SYSTEM_PROMPT],
 });
 
 export const Route = createFileRoute("/demo/api/tanchat")({

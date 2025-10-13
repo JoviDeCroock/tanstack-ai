@@ -1,29 +1,51 @@
 import type { Tool } from "./types";
 
 /**
- * Helper type to infer parameter types from JSON Schema
+ * Property definition with optional required flag
  */
-type InferSchemaType<T extends Record<string, any>> = {
-  [K in keyof T["properties"]]: T["properties"][K]["type"] extends "string"
-  ? string
-  : T["properties"][K]["type"] extends "number"
-  ? number
-  : T["properties"][K]["type"] extends "boolean"
-  ? boolean
-  : T["properties"][K]["type"] extends "array"
-  ? any[]
-  : T["properties"][K]["type"] extends "object"
-  ? Record<string, any>
-  : any;
+type PropertyDefinition = {
+  readonly type: "string" | "number" | "boolean" | "array" | "object";
+  readonly description?: string;
+  readonly required?: boolean;
+  readonly [key: string]: any;
 };
+
+/**
+ * Infer TypeScript type from property type string
+ */
+type InferPropertyType<T extends { type: string }> =
+  T["type"] extends "string" ? string :
+  T["type"] extends "number" ? number :
+  T["type"] extends "boolean" ? boolean :
+  T["type"] extends "array" ? any[] :
+  T["type"] extends "object" ? Record<string, any> :
+  any;
+
+/**
+ * Check if a property has required: true at the type level
+ */
+type IsRequired<T> = T extends { required: true } ? true : false;
+
+/**
+ * Make property optional if required is not true
+ */
+type MakeOptional<T extends Record<string, any>> = {
+  [K in keyof T as IsRequired<T[K]> extends true ? K : never]: InferPropertyType<T[K]>
+} & {
+  [K in keyof T as IsRequired<T[K]> extends true ? never : K]?: InferPropertyType<T[K]>
+};
+
+/**
+ * Infer argument type from properties object
+ */
+type InferArgs<T extends Record<string, any>> = MakeOptional<T>;
 
 /**
  * Configuration for defining a tool with type inference
  */
 export interface DefineToolConfig<
-  TName extends string = string,
-  TParams extends Record<string, any> = Record<string, any>,
-  TArgs = InferSchemaType<TParams>
+  TName extends string,
+  TProps extends Record<string, PropertyDefinition>
 > {
   /**
    * The name of the tool function
@@ -34,14 +56,14 @@ export interface DefineToolConfig<
    */
   description: string;
   /**
-   * JSON Schema for the tool parameters
+   * Properties with inline required flags
    */
-  parameters: TParams;
+  properties: TProps;
   /**
    * The function to execute when the tool is called.
-   * Args are automatically typed based on the parameters schema.
+   * Args are automatically typed based on the properties.
    */
-  execute: (args: TArgs) => Promise<string> | string;
+  execute: (args: InferArgs<TProps>) => Promise<string> | string;
 }
 
 /**
@@ -52,13 +74,9 @@ export interface DefineToolConfig<
  * const getWeatherTool = defineTool({
  *   name: "getWeather",
  *   description: "Get the current weather",
- *   parameters: {
- *     type: "object",
- *     properties: {
- *       location: { type: "string", description: "City name" },
- *       units: { type: "string", description: "Temperature units" },
- *     },
- *     required: ["location"],
+ *   properties: {
+ *     location: { type: "string", description: "City name", required: true },
+ *     units: { type: "string", description: "Temperature units" },
  *   },
  *   execute: async (args) => {
  *     // args is automatically typed as { location: string; units?: string }
@@ -69,24 +87,73 @@ export interface DefineToolConfig<
  */
 export function defineTool<
   const TName extends string,
-  const TParams extends {
-    type: "object";
-    properties: Record<string, any>;
-    required?: readonly string[];
-  }
+  const TProps extends Record<string, PropertyDefinition>
 >(
-  config: DefineToolConfig<TName, TParams, InferSchemaType<TParams>>
+  config: DefineToolConfig<TName, TProps>
 ): Tool & { __toolName: TName } {
+  // Extract required properties
+  const required = Object.entries(config.properties)
+    .filter(([_, prop]) => prop.required === true)
+    .map(([key]) => key);
+
+  // Build JSON Schema properties (without required flag)
+  const properties: Record<string, any> = {};
+  for (const [key, prop] of Object.entries(config.properties)) {
+    const { required: _, ...rest } = prop;
+    properties[key] = rest;
+  }
+
   return {
     type: "function" as const,
     function: {
       name: config.name,
       description: config.description,
-      parameters: config.parameters,
+      parameters: {
+        type: "object",
+        properties,
+        required,
+      },
     },
-    execute: config.execute,
+    execute: config.execute as any,
     __toolName: config.name,
   } as Tool & { __toolName: TName };
+}
+
+/**
+ * Configuration for a single tool in defineTools
+ */
+export type DefineToolsConfig<TProps extends Record<string, any>> = {
+  description: string;
+  properties: TProps;
+  execute: (args: InferArgs<TProps>) => Promise<string> | string;
+}
+
+/**
+ * Helper to define a tool with enforced type safety.
+ * Use this when defining tools for `defineTools` to get proper type inference.
+ * 
+ * @example
+ * ```typescript
+ * const tools = defineTools({
+ *   myTool: tool({
+ *     description: "My tool",
+ *     properties: {
+ *       id: { type: "string", required: true },
+ *     },
+ *     execute: async (args) => {
+ *       // args is properly typed as { id: string }
+ *       return args.id;
+ *     },
+ *   }),
+ * });
+ * ```
+ */
+export function tool<const TProps extends Record<string, any>>(config: {
+  description: string;
+  properties: TProps;
+  execute: (args: InferArgs<TProps>) => Promise<string> | string;
+}) {
+  return config;
 }
 
 /**
@@ -96,34 +163,27 @@ export function defineTool<
  * @example
  * ```typescript
  * const tools = defineTools({
- *   getWeather: {
+ *   getWeather: tool({
  *     description: "Get the current weather",
- *     parameters: {
- *       type: "object",
- *       properties: {
- *         location: { type: "string" },
- *       },
- *       required: ["location"],
+ *     properties: {
+ *       location: { type: "string", required: true },
+ *       units: { type: "string" },
  *     },
  *     execute: async (args) => {
- *       // args is typed as { location: string }
+ *       // args is typed as { location: string; units?: string }
  *       return JSON.stringify({ temp: 72 });
  *     },
- *   },
- *   getTime: {
+ *   }),
+ *   getTime: tool({
  *     description: "Get the current time",
- *     parameters: {
- *       type: "object",
- *       properties: {
- *         timezone: { type: "string" },
- *       },
- *       required: [],
+ *     properties: {
+ *       timezone: { type: "string" },
  *     },
  *     execute: async (args) => {
  *       // args is typed as { timezone?: string }
  *       return new Date().toISOString();
  *     },
- *   },
+ *   }),
  * });
  * 
  * // Use with AI constructor
@@ -131,32 +191,48 @@ export function defineTool<
  * ```
  */
 export function defineTools<
-  const T extends Record<
+  T extends Record<
     string,
     {
       description: string;
-      parameters: {
-        type: "object";
-        properties: Record<string, any>;
-        required?: readonly string[];
-      };
+      properties: Record<string, any>;
+    } & {
       execute: (args: any) => Promise<string> | string;
     }
   >
 >(
   toolsConfig: T
 ): {
-    [K in keyof T]: Tool & { __toolName: K };
+    [K in keyof T]: Tool & {
+      __toolName: K;
+      execute: T[K]["execute"];
+    };
   } {
   const result = {} as any;
 
   for (const [name, config] of Object.entries(toolsConfig)) {
+    // Extract required properties
+    const required = Object.entries(config.properties as Record<string, PropertyDefinition>)
+      .filter(([_, prop]) => prop.required === true)
+      .map(([key]) => key);
+
+    // Build JSON Schema properties (without required flag)
+    const properties: Record<string, any> = {};
+    for (const [key, prop] of Object.entries(config.properties as Record<string, PropertyDefinition>)) {
+      const { required: _, ...rest } = prop;
+      properties[key] = rest;
+    }
+
     result[name] = {
       type: "function" as const,
       function: {
         name,
         description: config.description,
-        parameters: config.parameters,
+        parameters: {
+          type: "object",
+          properties,
+          required,
+        },
       },
       execute: config.execute,
       __toolName: name,
