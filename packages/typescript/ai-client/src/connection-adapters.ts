@@ -53,7 +53,7 @@ export function fetchServerSentEvents(
       // Convert UIMessages to ModelMessages if needed
       const modelMessages: ModelMessage[] = [];
       for (const msg of messages) {
-        if ('parts' in msg) {
+        if ("parts" in msg) {
           // UIMessage - convert to ModelMessages
           modelMessages.push(...uiMessageToModelMessages(msg as UIMessage));
         } else {
@@ -76,6 +76,8 @@ export function fetchServerSentEvents(
           Object.assign(requestHeaders, options.headers);
         }
       }
+
+      console.log("url", url);
 
       const response = await fetch(url, {
         method: "POST",
@@ -159,7 +161,7 @@ export function fetchHttpStream(
       // Convert UIMessages to ModelMessages if needed
       const modelMessages: ModelMessage[] = [];
       for (const msg of messages) {
-        if ('parts' in msg) {
+        if ("parts" in msg) {
           // UIMessage - convert to ModelMessages
           modelMessages.push(...uiMessageToModelMessages(msg as UIMessage));
         } else {
@@ -275,7 +277,7 @@ export function stream(
       // Convert UIMessages to ModelMessages if needed
       const modelMessages: ModelMessage[] = [];
       for (const msg of messages) {
-        if ('parts' in msg) {
+        if ("parts" in msg) {
           // UIMessage - convert to ModelMessages
           modelMessages.push(...uiMessageToModelMessages(msg as UIMessage));
         } else {
@@ -283,7 +285,7 @@ export function stream(
           modelMessages.push(msg as ModelMessage);
         }
       }
-      
+
       // Note: abortSignal is available but streamFactory doesn't accept it
       // Custom stream factories should handle abort signals themselves
       yield* streamFactory(modelMessages, data);

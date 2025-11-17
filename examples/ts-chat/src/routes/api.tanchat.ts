@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/tanchat")({
             systemPrompts: [SYSTEM_PROMPT],
             agentLoopStrategy: maxIterations(20),
             options: {
-              abortSignal: request.signal,
+              // abortSignal: request.signal, // TBD: figure out why this is not working
             },
             providerOptions: {
               store: true,

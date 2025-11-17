@@ -175,8 +175,6 @@ class AI<
   constructor(config: AIConfig<TAdapter>) {
     this.adapter = config.adapter;
     this.systemPrompts = config.systemPrompts || [];
-
-
   }
 
   /**
@@ -225,8 +223,12 @@ class AI<
     // Extract abortSignal from options
     const { abortSignal, ...restOptions } = options;
 
-    const requestId = `chat-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const streamId = `stream-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const requestId = `chat-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}`;
+    const streamId = `stream-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}`;
 
     // Emit chat started event
     aiEventClient.emit("chat:started", {
@@ -238,14 +240,10 @@ class AI<
       timestamp: Date.now(),
     });
 
-
     const shouldContinueLoop = agentLoopStrategy || maxIterationsStrategy(5);
 
     // Prepend system prompts to messages
-    let messages = this.prependSystemPrompts(
-      inputMessages,
-      systemPrompts
-    );
+    let messages = this.prependSystemPrompts(inputMessages, systemPrompts);
 
     let iterationCount = 0;
     const toolCallManager = new ToolCallManager(tools || []);
@@ -261,7 +259,6 @@ class AI<
       timestamp: streamStartTime,
     });
 
-
     do {
       // Check if aborted before starting iteration
       if (abortSignal?.aborted) {
@@ -273,7 +270,9 @@ class AI<
       let chunkCount = 0;
 
       // Generate a unique messageId for this response/chunk group
-      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      const messageId = `msg-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 11)}`;
 
       // Stream the current iteration, passing abortSignal
       for await (const chunk of this.adapter.chatStream({
@@ -293,7 +292,6 @@ class AI<
         totalChunkCount++; // Increment total as well
         // Forward all chunks to the caller
         yield chunk;
-
 
         // Emit granular chunk events
         if (chunk.type === "content") {
@@ -390,7 +388,6 @@ class AI<
           timestamp: Date.now(),
         });
 
-
         // Add assistant message with tool calls
         messages = [
           ...messages,
@@ -456,7 +453,6 @@ class AI<
               timestamp: Date.now(),
             });
 
-
             yield {
               type: "approval-requested",
               id: doneChunk.id,
@@ -480,7 +476,6 @@ class AI<
               input: clientTool.input,
               timestamp: Date.now(),
             });
-
 
             yield {
               type: "tool-input-available",
@@ -507,7 +502,6 @@ class AI<
             duration: 0, // We'd need to track execution time
             timestamp: Date.now(),
           });
-
 
           const resultChunk = {
             type: "tool_result" as const,
@@ -555,8 +549,6 @@ class AI<
       duration: Date.now() - streamStartTime,
       timestamp: Date.now(),
     });
-
-
   }
 
   /**
@@ -584,21 +576,19 @@ class AI<
     TOptions extends {
       output?: ResponseFormat<any>;
     }
-  >(params: {
-    model: ExtractModels<TAdapter>;
-    messages: ChatCompletionOptions["messages"];
-    tools?: ReadonlyArray<Tool>;
-    systemPrompts?: string[];
-    options?: Omit<
-      ChatCompletionOptions,
-      | "model"
-      | "messages"
-      | "tools"
-      | "providerOptions"
-      | "responseFormat"
-    >;
-    providerOptions?: ExtractChatProviderOptions<TAdapter>;
-  } & TOptions): Promise<ChatCompletionReturnType<TOptions>> {
+  >(
+    params: {
+      model: ExtractModels<TAdapter>;
+      messages: ChatCompletionOptions["messages"];
+      tools?: ReadonlyArray<Tool>;
+      systemPrompts?: string[];
+      options?: Omit<
+        ChatCompletionOptions,
+        "model" | "messages" | "tools" | "providerOptions" | "responseFormat"
+      >;
+      providerOptions?: ExtractChatProviderOptions<TAdapter>;
+    } & TOptions
+  ): Promise<ChatCompletionReturnType<TOptions>> {
     const {
       model,
       messages: inputMessages,
@@ -611,8 +601,9 @@ class AI<
     // Extract abortSignal from options
     const { abortSignal, ...restOptions } = options;
 
-    const requestId = `chat-completion-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
+    const requestId = `chat-completion-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}`;
 
     // Emit chat started event
     aiEventClient.emit("chat:started", {
@@ -624,16 +615,12 @@ class AI<
       timestamp: Date.now(),
     });
 
-
     // Extract output if it exists
     const output = (params as any).output as ResponseFormat | undefined;
     const responseFormat = output;
 
     // Prepend system prompts to messages
-    const messages = this.prependSystemPrompts(
-      inputMessages,
-      systemPrompts
-    );
+    const messages = this.prependSystemPrompts(inputMessages, systemPrompts);
 
     const result = await this.adapter.chatCompletion({
       model: model as string,
