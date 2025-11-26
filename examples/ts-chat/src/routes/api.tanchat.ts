@@ -1,9 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  chat,
-  toStreamResponse,
-  maxIterations,
-} from "@tanstack/ai";
+import { chat, toStreamResponse, maxIterations } from "@tanstack/ai";
 import { openai } from "@tanstack/ai-openai";
 // import { ollama } from "@tanstack/ai-ollama";
 // import { anthropic } from "@tanstack/ai-anthropic";
@@ -37,8 +33,6 @@ export const Route = createFileRoute("/api/tanchat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-
-
         // Capture request signal before reading body (it may be aborted after body is consumed)
         const requestSignal = request.signal;
 
